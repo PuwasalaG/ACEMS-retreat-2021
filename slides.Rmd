@@ -1,13 +1,17 @@
 ---
-title: Outlier Detection in River Network
+title: A framework for anomaly detection in river networks
 author: Puwasala Gamakumara
-date: \today
+date: "ACEMS Retreat 2021"
 classoption: compress
 toc: false
 header-includes:
   \usepackage{amsmath, nccmath, graphicx}
   \usepackage{bm}
   \usepackage{mathpazo}
+  \usepackage{booktabs}
+  \usepackage{colortbl}
+  \usepackage{mathpazo}
+  \usepackage[ruled,vlined,linesnumbered]{algorithm2e}
 output: 
   binb::monash:
     fig_width: 8
@@ -27,8 +31,19 @@ library(tidyverse)
 library(lubridate)
 library(knitr)
 library(kableExtra)
+library(gridExtra)
+
 ```
 
+```{r external, include = FALSE, cache = FALSE}
+read_chunk('scr/scripts.R')
+```
+
+
+```{r echo=FALSE, out.width="100%"}
+knitr::include_graphics('plots/team-members/Team_members.pdf')
+
+```
 
 ## Water-quality monitoring in river networks
 
@@ -40,7 +55,7 @@ library(kableExtra)
 
 ### Objective
 
-- Developing statistical stools to detect anomalies in water-quality variables measured by in-situ sensors
+- Developing statistical tools to detect anomalies in water-quality variables measured by in-situ sensors
 
 
 ---
@@ -49,6 +64,8 @@ library(kableExtra)
 
 
 ## Proposed framework
+
+An anomaly is an observation that has an unexpectedly low conditional distribution
 
 ```{r framework, echo=FALSE, fig.width=6, fig.height=4}
 
@@ -60,8 +77,8 @@ knitr::include_graphics('plots/Framework.pdf')
 
 ### Pringle Creek - Texas, USA
 
-```{r pringle-creek-map, echo=FALSE, out.height = "\\textheight",  out.width = "\\textwidth"}
-knitr::include_graphics('plots/Pringle_creek_map.png')
+```{r pringle-creek-map, echo=FALSE, out.width="90%"}
+knitr::include_graphics('plots/Pringle-creek-map.png')
 ```
 
 ### Data 
@@ -76,9 +93,9 @@ knitr::include_graphics('plots/Pringle_creek_map.png')
 
 ### Time plots
 
-```{r tsplots, echo=FALSE, out.width="\\textwidth"}
+```{r tsplots, echo=FALSE, out.width="100%"}
 
-knitr::include_graphics('plots/Timeplots.png')
+# knitr::include_graphics('plots/Timeplots.png')
 
 ```
 
@@ -87,9 +104,9 @@ knitr::include_graphics('plots/Timeplots.png')
 
 ### Turbidity downstream
 
-```{r turbplot, echo=FALSE, fig.width=8, fig.height=6}
+```{r turbplot, echo=FALSE, out.width="100%"}
 
-knitr::include_graphics('plots/Timeplots_turbVsUpVars.pdf')
+# knitr::include_graphics('plots/Timeplots_turbVsUpVars.pdf')
 
 ```
 
@@ -171,7 +188,7 @@ $$
 
 ## Visualising dt vs predictors
 
-```{r vis_dt, echo=FALSE, fig.width=8, fig.height=6}
+```{r vis_dt, echo=FALSE, out.width="100%"}
 
 knitr::include_graphics('plots/vis_dt.pdf')
 
@@ -209,24 +226,28 @@ knitr::include_graphics('plots/GAM_AR_residuals.pdf')
 ### Performance Evaluation
 ```{r conf_matrix, echo=FALSE, fig.width=6, fig.height=4}
 
-knitr::include_graphics(here::here("plots",
-                                   "classification_model_up_AR.pdf"))
+knitr::include_graphics('plots/classification_model_up_AR.pdf')
 
 ```
 
 
-```{r echo=FALSE}
+```{r echo=FALSE, out.width="100%"}
 library(kableExtra)
 
-load(here::here("plots", "confusion_mod_up_AR.rda"))
+load('plots/confusion_mod_up_AR.rda')
 
-confusion_mod_up_AR %>%
-  select(-NPV, -PPV) %>% 
-  mutate(accuracy = round(accuracy, digits = 4),
-         ER = round(ER, digits = 4),
-         OP = round(OP, digits = 4)) %>%
-  kable() %>%
-  kable_styling(font_size = 7.5)
+options(scipen = 999)
+confusion_mod_up_AR <- confusion_mod_up_AR %>%
+  mutate(Accuracy = round(accuracy, digits = 4),
+         "Error rate" = round(ER, digits = 4),
+         "Optimised Precision" = round(OP, digits = 4)) %>% 
+  select(method, TP, TN, FP, FN)
+
+confusion_mod_up_AR %>% 
+  kableExtra::kable(format = "latex", booktabs = T) %>%
+  kableExtra::kable_styling(font_size = 6.75) %>% 
+  column_spec(1, bold = T) %>% 
+  row_spec(0, bold = T)
 
 ```
 
@@ -255,7 +276,7 @@ s_5(do\_up_{t-d_t}) + \epsilon_t
 g_1(conductance\_down_{t-1})\\ + 
 g_2(level\_down_{t-1}) + 
 g_3(temperature\_down_{t-1}) \\ 
-+ g_4(do\_down_{t-d_t}) + \epsilon_t
++ g_4(do\_down_{t-1}) + \epsilon_t
    \end{align*}$}
 \end{gather}
 
@@ -276,28 +297,44 @@ h_7(temperature\_down_{t-1}) + \epsilon_t
 
 ---
 
+##### Recall models
+- GAM-up-AR: GAM with upstream predictors and lagged response
+- GAM-up: GAM with upstream predictors
+- GAM-down: GAM with downstream predictors
+- GAM-up-down: GAM with upstream and downstream predictors
+
 ### Comparison
 
 
 ```{r echo=FALSE}
 
-load(here::here("plots", "tbl_comparison.rda"))
+load('plots/tbl_comparison.rda')
+
+tbl_comparison <- tbl_comparison %>%
+  mutate(Accuracy = round(accuracy, digits = 4),
+         "Error Rate" = round(ER, digits = 4),
+         "Optimised Precision" = round(OP, digits = 4)) %>% 
+  select(method, TP, TN, FP, FN, Accuracy, `Error Rate`, 
+         `Optimised Precision`)
 
 tbl_comparison %>%
-  select(-NPV, -PPV) %>% 
-  mutate(accuracy = round(accuracy, digits = 4),
-         ER = round(ER, digits = 4),
-         OP = round(OP, digits = 4)) %>%
-  kable() %>%
-  kable_styling(font_size = 7.5)
+  kableExtra::kbl(format = "latex", booktabs = T) %>%
+  kable_styling(font_size = 7, latex_options="scale_down") %>% 
+  column_spec(1, bold = T) %>% 
+  row_spec(0, bold = T) %>% 
+  row_spec(1, color = "red")
+
 
 
 ```
 
 
+
+
+
 ## Working papers and R packages
 
-### Working
+### Working papers
 
 - Conditional Normalisation in Time Series Analysis
 - Anomaly Detection in River Networks
@@ -306,16 +343,46 @@ tbl_comparison %>%
 
 - **`conduits`** (Conditional UI for Time Series normalisation) - https://github.com/PuwasalaG/conduits
 
-- **`dori`** (Data for Outlier Detection in River networks) - https://github.com/pridiltal/dori
+- **`dori`** (Data for Outlier Detection in River networks) 
 
 ---
 
-```{r echo=FALSE}
-knitr::include_graphics(here::here("plots", "team-members",
-                                   "Team_members.pdf"))
+### Acknowledgement
+- ARC Linkage project - “Revolutionising high resolution water-quality monitoring in the information age”. 
 
-```
+- Department of Environment and Science, Queensland
 
-- Australian Research Council (ARC) Linkage project (grant number:
-LP180101151) “Revolutionising high resolution water-quality monitoring in the information age”. 
 
+---
+
+<!-- ### SPOT algorithm -->
+
+<!-- \begin{algorithm} -->
+<!-- \DontPrintSemicolon -->
+<!-- \SetAlgoLined -->
+<!-- \SetKwInOut{Input}{Input}\SetKwInOut{Output}{Output} -->
+<!-- \Input{$\{r_1,\dots,r_T\}$, $n, \alpha,$ and $p_u$} -->
+<!-- \Output{Flagged residuals} -->
+<!-- \BlankLine -->
+<!-- Using $\bm{r}_n = |r_1|,\dots,|r_n|$, compute $u$ as the $p_u*100\%^\text{th}$ percentile\; -->
+<!-- Using POT approach, fit a GPD to the excesses over $u$ to estimate  -->
+<!-- $\xi$ and $\sigma$ following Section \ref{sec:init_thresh}\; -->
+<!-- Compute $\tau_{\alpha}$ as the $(1-\alpha)*100\%^\text{th}$ percentile from the fitted GPD with the parameter estimates $\hat{\xi}$ and $\hat{\sigma}$\; -->
+<!-- \If {$|r_i|>\tau_{\alpha}$ for $i = 1,\dots,n$} { -->
+<!--   Flag $r_i$ as an outlier\; -->
+<!--   Remove $r_i$ from $\bm{r}_n$, re-calibrate $\tau_{\alpha}$ following steps 2 and 3 \; -->
+<!--   }  -->
+<!-- \BlankLine -->
+<!-- \For{$i>n$}{ -->
+<!--     \uIf{$|r_i|>\tau_{\alpha}$}{ -->
+<!--         Flag $r_i$ as an outlier -->
+<!--     }\uElseIf{$|r_i|>u$}{ -->
+<!--         Flag $r_i$ as a typical point\; -->
+<!--         Add $|r_i|$ to $\bm{r}_n$\; -->
+<!--         Estimate the GPD parameters $\xi, \sigma$ following Section \ref{sec:init_thresh}\; -->
+<!--         Compute $\tau_{\alpha}$\; -->
+<!--     }\Else{ -->
+<!--       Flag $r_i$ as a typical point\; -->
+<!--     } -->
+<!-- } -->
+<!-- \end{algorithm} -->
